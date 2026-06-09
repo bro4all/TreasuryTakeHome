@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # postinstall vendors the Tesseract worker/core/language assets
+      # into public/tesseract so the build is self-contained.
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
+
+      - name: Confirm OCR assets are bundled
+        run: |
+          for f in worker.min.js eng.traineddata.gz \
+                   tesseract-core-lstm.wasm.js \
+                   tesseract-core-simd-lstm.wasm.js \
+                   tesseract-core-relaxedsimd-lstm.wasm.js; do
+            test -f "dist/tesseract/$f" || { echo "missing $f"; exit 1; }
+          done
